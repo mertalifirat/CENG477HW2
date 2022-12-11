@@ -9,6 +9,55 @@ using namespace std;
 
 Scene *scene;
 
+
+
+struct PerMeshModelling{
+    int mesh_id;
+    Matrix4 compositeModelling;
+};
+
+// scaling matrix creation
+Matrix4 scalingMatrix(Scaling scaling){
+    Matrix4 result=getIdentityMatrix();
+    result.val[0][0]=scaling.sx;
+    result.val[1][1]=scaling.sy;
+    result.val[2][2]=scaling.sz;
+    return result;
+}
+
+// // rotation matrix creation
+// Matrix4 rotationMatrix(Rotation rotation){
+//     Matrix4 result=getIdentityMatrix();
+//     result.val[0][3]=rotation.tx;
+//     result.val[1][3]=rotation.ty;
+//     result.val[2][3]=rotation.tz;
+//     return result;
+// }
+
+// translation matrix creation
+Matrix4 translationMatrix(Translation translation){
+    Matrix4 result=getIdentityMatrix();
+    result.val[0][3]=translation.tx;
+    result.val[1][3]=translation.ty;
+    result.val[2][3]=translation.tz;
+    return result;
+}
+
+// eventually we will get the composite modelling transformations
+Matrix4 modellingTransformationsPipeline(){
+    
+    vector<Matrix4> transformationsAll;
+    vector<PerMeshModelling> perMeshModellings; 
+    // per each mesh
+    for (int i=0; i<scene->meshes.size(); i++){
+        // each mesh's transformations
+        for (int j=0; j<scene->meshes[i]->numberOfTransformations; j++){
+            if (scene->meshes[i])
+        }
+    }
+    
+}
+
 Matrix4 compositeAll(vector<Matrix4> tranformsAll){
     Matrix4 result=getIdentityMatrix();
     for (int i=0; i<tranformsAll.size(); i++){
@@ -55,6 +104,7 @@ int main(int argc, char *argv[])
 
             Vec3 gaze=scene->cameras[i]->gaze;
             Vec3 up=scene->cameras[i]->u;
+            modellingTransformationsPipeline();
             if (scene->cameras[i]->projectionType==1){
                 // perspective will be applied
             }
