@@ -8,7 +8,15 @@
 using namespace std;
 
 Scene *scene;
-
+//
+// helpers on matrices
+//
+Matrix4 translateBack(Matrix4 matrix){
+    matrix.val[0][3]*=-1;
+    matrix.val[1][3]*=-1;
+    matrix.val[2][3]*=-1;
+    return matrix;
+}
 
 
 struct PerMeshModelling{
@@ -50,10 +58,37 @@ Matrix4 modellingTransformationsPipeline(){
     vector<PerMeshModelling> perMeshModellings; 
     // per each mesh
     for (int i=0; i<scene->meshes.size(); i++){
+
         // each mesh's transformations
         for (int j=0; j<scene->meshes[i]->numberOfTransformations; j++){
-            if (scene->meshes[i])
+            if (scene->meshes[i]->transformationTypes[j]=='t'){
+                cout<<'t';
+                cout<<j<<endl;
+                // from all translations take the one wrt. transformation id of this mesh's tranfsormation
+                // id so minus 1 
+                Translation* trans=(scene->translations[scene->meshes[i]->transformationIds[j]-1]);
+                cout << trans->translationId << " " << trans->tx << " "<< endl;
+                // tranlation function creation
+                Matrix4 tMatrix=translationMatrix(*trans);
+                // translate it first
+                transformationsAll.push_back(tMatrix);
+                // translate back
+                transformationsAll.insert(transformationsAll.begin(),translateBack(tMatrix));
+                
+            }
+            else if (scene->meshes[i]->transformationTypes[j]=='r'){
+                cout<<'r';
+                cout<<j<<endl;
+            }
+            else if (scene->meshes[i]->transformationTypes[j]=='s'){
+                cout<<'s';
+                cout<<j<<endl;
+            }
+            
         }
+    }
+    for (int i=0; i<transformationsAll.size(); i++){
+        cout<<transformationsAll[i]<<endl;
     }
     
 }
@@ -108,9 +143,9 @@ int main(int argc, char *argv[])
             if (scene->cameras[i]->projectionType==1){
                 // perspective will be applied
             }
-            cout<<scene->cameras[i]->u<<endl;
-            cout<<scene->cameras[i]->v<<endl;
-            cout<<scene->cameras[i]->w<<endl;
+            // cout<<scene->cameras[i]->u<<endl;
+            // cout<<scene->cameras[i]->v<<endl;
+            // cout<<scene->cameras[i]->w<<endl;
 
 
             // initialize image with basic values
