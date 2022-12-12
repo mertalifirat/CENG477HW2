@@ -4,6 +4,7 @@
 #include "Scene.h"
 #include "Matrix4.h"
 #include "Helpers.h"
+#include <cmath>
 
 using namespace std;
 
@@ -11,6 +12,27 @@ Scene *scene;
 //
 // helpers on matrices
 //
+Matrix4 compositeAll(vector<Matrix4>& tranformsAll){
+    Matrix4 result=getIdentityMatrix();
+    for (int i=0; i<tranformsAll.size(); i++){
+        Matrix4 x = tranformsAll[i];
+        result=multiplyMatrixWithMatrix(result,x);
+    }
+    return result;
+}
+
+// creating orthonormal tranformation matrix
+Matrix4 M_orth(double left, double right, double bottom, double top, double near, double far){
+    Matrix4 result=getIdentityMatrix();
+    result.val[0][0]=2/(right-left);
+    result.val[1][1]=2/(top-bottom);
+    result.val[2][2]=-2/(far-near);
+    result.val[0][3]=-(right+left)/(right-left);
+    result.val[1][3]=-(top+bottom)/(top-bottom);
+    result.val[2][3]=-(far+near)/(far-near);
+    return result;
+}
+
 Matrix4 translateBack(Matrix4 matrix){
     matrix.val[0][3]*=-1;
     matrix.val[1][3]*=-1;
@@ -33,14 +55,22 @@ Matrix4 scalingMatrix(Scaling scaling){
     return result;
 }
 
-// // rotation matrix creation
-// Matrix4 rotationMatrix(Rotation rotation){
-//     Matrix4 result=getIdentityMatrix();
-//     result.val[0][3]=rotation.tx;
-//     result.val[1][3]=rotation.ty;
-//     result.val[2][3]=rotation.tz;
-//     return result;
-// }
+// rotation matrix creation
+Matrix4 rotationMatrix(Rotation rotation){
+    Matrix4 result=getIdentityMatrix();
+    const double cosinus = cos(rotation.angle*(3.141/180));
+    const double sinus = sin(rotation.angle*(3.141/180));
+    result.val[0][0] = cosinus + (rotation.ux)*(rotation.ux)*(1 - cosinus) ;
+    result.val[0][1] = (rotation.ux)*(rotation.uy)*(1 - cosinus) - ((rotation.uz)*sinus);
+    result.val[0][2] = (rotation.ux)*(rotation.uz)*(1 - cosinus) + (rotation.uy*sinus);
+    result.val[1][0] = (rotation.ux)*(rotation.uy)*(1 - cosinus) + ((rotation.uz)*sinus);
+    result.val[1][1] = cosinus + (rotation.uy)*(rotation.uy)*(1 - cosinus) ;
+    result.val[1][2] = (rotation.uy)*(rotation.uz)*(1 - cosinus) - (rotation.ux*sinus);
+    result.val[2][0] = (rotation.ux)*(rotation.uz)*(1 - cosinus) - (rotation.uy*sinus);
+    result.val[2][1] = (rotation.uy)*(rotation.uz)*(1 - cosinus) + (rotation.ux*sinus);
+    result.val[2][2] = cosinus + (rotation.uz)*(rotation.uz)*(1 - cosinus) ;
+    return result;
+}
 
 // translation matrix creation
 Matrix4 translationMatrix(Translation translation){
@@ -51,14 +81,14 @@ Matrix4 translationMatrix(Translation translation){
     return result;
 }
 
-// eventually we will get the composite modelling transformations
+// eventually we will get the composite modelli.ng transformations
 Matrix4 modellingTransformationsPipeline(){
     
-    vector<Matrix4> transformationsAll;
+    
     vector<PerMeshModelling> perMeshModellings; 
     // per each mesh
     for (int i=0; i<scene->meshes.size(); i++){
-
+        vector<Matrix4> transformationsAll;
         // each mesh's transformations
         for (int j=0; j<scene->meshes[i]->numberOfTransformations; j++){
             if (scene->meshes[i]->transformationTypes[j]=='t'){
@@ -69,45 +99,40 @@ Matrix4 modellingTransformationsPipeline(){
                 Matrix4 tMatrix=translationMatrix(*trans);
                 // only translation
                 transformationsAll.push_back(tMatrix);
+                cout<<tMatrix<<endl;
             }
             else if (scene->meshes[i]->transformationTypes[j]=='r'){
-                
+                Rotation* trans = scene->rotations[scene->meshes[i]->transformationIds[j]-1];
+                Matrix4 tMatrix=rotationMatrix(*trans);
+                transformationsAll.push_back(tMatrix);
+                cout<<tMatrix<<endl;
             }
             else if (scene->meshes[i]->transformationTypes[j]=='s'){
                 // scalings are not translated
                 Scaling* trans=(scene->scalings[scene->meshes[i]->transformationIds[j]-1]);
                 Matrix4 tMatrix=scalingMatrix(*trans);
                 transformationsAll.push_back(tMatrix);
+                cout<<tMatrix<<endl;
 
             }
             
         }
+        Matrix4 tComposite=compositeAll(transformationsAll);
+        PerMeshModelling tP;
+        tP.compositeModelling=tComposite;
+        tP.mesh_id=i+1;
+        perMeshModellings.push_back(tP);
+        cout << tComposite << endl;
+
     }
-    for (int i=0; i<transformationsAll.size(); i++){
-        cout<<transformationsAll[i]<<endl;
+    for (int i=0; i<perMeshModellings.size(); i++){
+        cout<<perMeshModellings[i].compositeModelling<<endl;
     }
-    
+
+    return Matrix4();
 }
 
-Matrix4 compositeAll(vector<Matrix4> tranformsAll){
-    Matrix4 result=getIdentityMatrix();
-    for (int i=0; i<tranformsAll.size(); i++){
-        result=multiplyMatrixWithMatrix(result,tranformsAll[i]);
-    }
-    return result;
-}
 
-// creating orthonormal tranformation matrix
-Matrix4 M_orth(double left, double right, double bottom, double top, double near, double far){
-    Matrix4 result=getIdentityMatrix();
-    result.val[0][0]=2/(right-left);
-    result.val[1][1]=2/(top-bottom);
-    result.val[2][2]=-2/(far-near);
-    result.val[0][3]=-(right+left)/(right-left);
-    result.val[1][3]=-(top+bottom)/(top-bottom);
-    result.val[2][3]=-(far+near)/(far-near);
-    return result;
-}
 
 
 
