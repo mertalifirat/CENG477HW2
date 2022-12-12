@@ -41,6 +41,7 @@ Matrix4 translateBack(Matrix4 matrix){
 }
 
 
+
 struct PerMeshModelling{
     int mesh_id;
     Matrix4 compositeModelling;
@@ -82,7 +83,7 @@ Matrix4 translationMatrix(Translation translation){
 }
 
 // eventually we will get the composite modelli.ng transformations
-Matrix4 modellingTransformationsPipeline(){
+vector<PerMeshModelling> modellingTransformationsPipeline(){
     
     
     vector<PerMeshModelling> perMeshModellings; 
@@ -122,14 +123,10 @@ Matrix4 modellingTransformationsPipeline(){
         tP.compositeModelling=tComposite;
         tP.mesh_id=i+1;
         perMeshModellings.push_back(tP);
-        cout << tComposite << endl;
+
 
     }
-    for (int i=0; i<perMeshModellings.size(); i++){
-        cout<<perMeshModellings[i].compositeModelling<<endl;
-    }
-
-    return Matrix4();
+    return perMeshModellings;
 }
 
 
