@@ -62,27 +62,23 @@ Matrix4 modellingTransformationsPipeline(){
         // each mesh's transformations
         for (int j=0; j<scene->meshes[i]->numberOfTransformations; j++){
             if (scene->meshes[i]->transformationTypes[j]=='t'){
-                cout<<'t';
-                cout<<j<<endl;
                 // from all translations take the one wrt. transformation id of this mesh's tranfsormation
                 // id so minus 1 
                 Translation* trans=(scene->translations[scene->meshes[i]->transformationIds[j]-1]);
-                cout << trans->translationId << " " << trans->tx << " "<< endl;
                 // tranlation function creation
                 Matrix4 tMatrix=translationMatrix(*trans);
-                // translate it first
+                // only translation
                 transformationsAll.push_back(tMatrix);
-                // translate back
-                transformationsAll.insert(transformationsAll.begin(),translateBack(tMatrix));
-                
             }
             else if (scene->meshes[i]->transformationTypes[j]=='r'){
-                cout<<'r';
-                cout<<j<<endl;
+                
             }
             else if (scene->meshes[i]->transformationTypes[j]=='s'){
-                cout<<'s';
-                cout<<j<<endl;
+                // scalings are not translated
+                Scaling* trans=(scene->scalings[scene->meshes[i]->transformationIds[j]-1]);
+                Matrix4 tMatrix=scalingMatrix(*trans);
+                transformationsAll.push_back(tMatrix);
+
             }
             
         }
