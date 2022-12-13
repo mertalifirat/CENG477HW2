@@ -200,9 +200,18 @@ int main(int argc, char *argv[])
 
             Vec3 gaze=scene->cameras[i]->gaze;
             Vec3 up=scene->cameras[i]->u;
-            modellingTransformationsPipeline();
+            vector<PerMeshModelling> permeshModelling=modellingTransformationsPipeline();
+            Matrix4 cameraTransformationMatrix=cameraTransformation(*(scene->cameras[i]));
+            Matrix4 p2oMatrix=getIdentityMatrix();
+            Matrix4 orthMatrix=M_orth(  scene->cameras[i]->left, 
+                                        scene->cameras[i]->right, 
+                                        scene->cameras[i]->bottom, 
+                                        scene->cameras[i]->top, 
+                                        scene->cameras[i]->near, 
+                                        scene->cameras[i]->far);
+
             if (scene->cameras[i]->projectionType==1){
-                // perspective will be applied
+                p2oMatrix=p2o(scene->cameras[i]->far,scene->cameras[i]->near);
             }
             // cout<<scene->cameras[i]->u<<endl;
             // cout<<scene->cameras[i]->v<<endl;
