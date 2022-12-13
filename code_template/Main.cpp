@@ -20,6 +20,20 @@ Matrix4 compositeAll(vector<Matrix4>& tranformsAll){
     }
     return result;
 }
+// persepective to orth.
+Matrix4 p2o(double f, double n){
+    Matrix4 result=getIdentityMatrix();
+    result.val[0][0]=n;
+    result.val[1][1]=n;
+    result.val[2][2]=f+n;
+    result.val[2][3]=f*n;
+    result.val[3][2]=-1;
+    return result;
+}
+// viewport transformation
+Matrix4 viewportT(){
+
+}
 
 // creating orthonormal tranformation matrix
 Matrix4 M_orth(double left, double right, double bottom, double top, double near, double far){
