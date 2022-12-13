@@ -20,6 +20,26 @@ Matrix4 compositeAll(vector<Matrix4>& tranformsAll){
     }
     return result;
 }
+Matrix4 cameraTransformation(Camera cam){
+    Matrix4 result=getIdentityMatrix();
+    double ex=-1*cam.pos.x;
+    double ey=-1*cam.pos.y;
+    double ez=-1*cam.pos.z;
+    result.val[0][0] = cam.u.x;
+    result.val[0][1] = cam.u.y;
+    result.val[0][2] = cam.u.z;
+    result.val[0][3] = -1*(cam.u.x*ex+cam.u.y*ey+cam.u.z*ez);
+    result.val[1][0] = cam.v.x;
+    result.val[1][1] = cam.v.y;
+    result.val[1][2] = cam.v.z;
+    result.val[1][3] = -1*(cam.v.x*ex+cam.v.y*ey+cam.v.z*ez);
+    result.val[2][0] = cam.w.x;
+    result.val[2][1] = cam.w.y;
+    result.val[2][2] = cam.w.z;
+    result.val[2][3] = -1*(cam.w.x*ex+cam.w.y*ey+cam.w.z*ez);
+    return result;
+
+}
 // persepective to orth.
 Matrix4 p2o(double f, double n){
     Matrix4 result=getIdentityMatrix();
@@ -31,7 +51,16 @@ Matrix4 p2o(double f, double n){
     return result;
 }
 // viewport transformation
-Matrix4 viewportT(){
+// 3x4 matrix is mentioned 
+// but extra row does not cause error wrt. slides
+Matrix4 viewportT(int nx, int ny){
+    Matrix4 result=getIdentityMatrix();
+    result.val[0][0]=nx/2;
+    result.val[1][1]=ny/2;
+    result.val[2][2]=0.5;
+    result.val[2][3]=0.5;
+    // NOT FINISHED
+    // result.val[0][3]=(nx-1)/2
 
 }
 
