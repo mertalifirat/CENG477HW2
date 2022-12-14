@@ -7,7 +7,7 @@
 #include <cmath>
 
 using namespace std;
-
+# define M_PI  3.14159265358979323846
 Scene *scene;
 //
 // helpers on matrices
@@ -22,9 +22,9 @@ Matrix4 compositeAll(vector<Matrix4>& tranformsAll){
 }
 Matrix4 cameraTransformation(Camera cam){
     Matrix4 result=getIdentityMatrix();
-    double ex=-1*cam.pos.x;
-    double ey=-1*cam.pos.y;
-    double ez=-1*cam.pos.z;
+    double ex=cam.pos.x;
+    double ey=cam.pos.y;
+    double ez=cam.pos.z;
     result.val[0][0] = cam.u.x;
     result.val[0][1] = cam.u.y;
     result.val[0][2] = cam.u.z;
@@ -56,9 +56,12 @@ Matrix4 p2o(double f, double n){
 Matrix4 viewportT(int nx, int ny){
     Matrix4 result=getIdentityMatrix();
     result.val[0][0]=nx/2;
+    result.val[0][3]=(nx-1)/2;
     result.val[1][1]=ny/2;
+    result.val[1][3]=(ny-1)/2;
     result.val[2][2]=0.5;
     result.val[2][3]=0.5;
+    return result;
     // NOT FINISHED
     // result.val[0][3]=(nx-1)/2
 
@@ -102,8 +105,8 @@ Matrix4 scalingMatrix(Scaling scaling){
 // rotation matrix creation
 Matrix4 rotationMatrix(Rotation rotation){
     Matrix4 result=getIdentityMatrix();
-    const double cosinus = cos(rotation.angle*(3.141/180));
-    const double sinus = sin(rotation.angle*(3.141/180));
+    const double cosinus = cos(rotation.angle*(M_PI/180));
+    const double sinus = sin(rotation.angle*(M_PI/180));
     result.val[0][0] = cosinus + (rotation.ux)*(rotation.ux)*(1 - cosinus) ;
     result.val[0][1] = (rotation.ux)*(rotation.uy)*(1 - cosinus) - ((rotation.uz)*sinus);
     result.val[0][2] = (rotation.ux)*(rotation.uz)*(1 - cosinus) + (rotation.uy*sinus);
@@ -142,21 +145,18 @@ vector<PerMeshModelling> modellingTransformationsPipeline(){
                 // tranlation function creation
                 Matrix4 tMatrix=translationMatrix(*trans);
                 // only translation
-                transformationsAll.push_back(tMatrix);
-                cout<<tMatrix<<endl;
+                transformationsAll.insert(transformationsAll.begin(),(tMatrix));
             }
             else if (scene->meshes[i]->transformationTypes[j]=='r'){
                 Rotation* trans = scene->rotations[scene->meshes[i]->transformationIds[j]-1];
                 Matrix4 tMatrix=rotationMatrix(*trans);
-                transformationsAll.push_back(tMatrix);
-                cout<<tMatrix<<endl;
+                transformationsAll.insert(transformationsAll.begin(),(tMatrix));
             }
             else if (scene->meshes[i]->transformationTypes[j]=='s'){
                 // scalings are not translated
                 Scaling* trans=(scene->scalings[scene->meshes[i]->transformationIds[j]-1]);
                 Matrix4 tMatrix=scalingMatrix(*trans);
-                transformationsAll.push_back(tMatrix);
-                cout<<tMatrix<<endl;
+                transformationsAll.insert(transformationsAll.begin(),(tMatrix));
 
             }
             
@@ -209,13 +209,50 @@ int main(int argc, char *argv[])
                                         scene->cameras[i]->top, 
                                         scene->cameras[i]->near, 
                                         scene->cameras[i]->far);
-
+            Matrix4 viewportMatrix=viewportT(scene->cameras[i]->horRes,scene->cameras[i]->verRes);
             if (scene->cameras[i]->projectionType==1){
                 p2oMatrix=p2o(scene->cameras[i]->far,scene->cameras[i]->near);
             }
-            // cout<<scene->cameras[i]->u<<endl;
-            // cout<<scene->cameras[i]->v<<endl;
-            // cout<<scene->cameras[i]->w<<endl;
+
+            for (int j=0;  j<permeshModelling.size(); j++){
+                Mesh * msh=scene->meshes[j];
+                Matrix4 res=multiplyMatrixWithMatrix(cameraTransformationMatrix, permeshModelling[j].compositeModelling);
+                Matrix4 res1=multiplyMatrixWithMatrix(p2oMatrix,res);
+                res1=multiplyMatrixWithMatrix(orthMatrix,res1);
+                for (int k=0; k<msh->numberOfTriangles; k++){
+                    Triangle tFace=msh->triangles[k];
+                    int id1=tFace.getFirstVertexId();
+                    int id2=tFace.getSecondVertexId();
+                    int id3=tFace.getThirdVertexId();
+                    Vec3* point1=scene->vertices[id1-1];
+                    Vec3* point2=scene->vertices[id2-1];
+                    Vec3* point3=scene->vertices[id3-1];
+                    Vec4 vec1=Vec4(point1->x,point1->y,point1->z,1,point1->colorId);
+                    Vec4 vec2=Vec4(point2->x,point2->y,point2->z,1,point2->colorId);
+                    Vec4 vec3=Vec4(point3->x,point3->y,point3->z,1,point3->colorId);
+                    vec1=multiplyMatrixWithVec4(res1,vec1);
+                    vec2=multiplyMatrixWithVec4(res1,vec2);
+                    vec3=multiplyMatrixWithVec4(res1,vec3);
+                    if (scene->cameras[i]->projectionType==1){
+                        vec1.x/=vec1.t;
+                        vec1.y/=vec1.t;
+                        vec1.z/=vec1.t;
+
+                        vec2.x/=vec2.t;
+                        vec2.y/=vec2.t;
+                        vec2.z/=vec2.t;
+
+                        vec3.x/=vec3.t;
+                        vec3.y/=vec3.t;
+                        vec3.z/=vec3.t;
+                    }
+                    Vec4 final1=multiplyMatrixWithVec4(viewportMatrix,vec1);
+                    Vec4 final2=multiplyMatrixWithVec4(viewportMatrix,vec2);
+                    Vec4 final3=multiplyMatrixWithVec4(viewportMatrix,vec3);
+
+                    
+                }
+            }
 
 
             // initialize image with basic values
