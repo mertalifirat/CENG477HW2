@@ -9,6 +9,13 @@
 using namespace std;
 # define M_PI  3.14159265358979323846
 Scene *scene;
+
+struct Line{
+    int colorId1, colorId2;
+    double x0, x1, y0, y1; 
+};
+
+
 //
 // helpers on matrices
 //
@@ -48,6 +55,7 @@ Matrix4 p2o(double f, double n){
     result.val[2][2]=f+n;
     result.val[2][3]=f*n;
     result.val[3][2]=-1;
+    result.val[3][3]=0;
     return result;
 }
 // viewport transformation
@@ -105,8 +113,8 @@ Matrix4 scalingMatrix(Scaling scaling){
 // rotation matrix creation
 Matrix4 rotationMatrix(Rotation rotation){
     Matrix4 result=getIdentityMatrix();
-    const double cosinus = cos(rotation.angle*(M_PI/180));
-    const double sinus = sin(rotation.angle*(M_PI/180));
+    const double cosinus = cos(rotation.angle*(3.14159265f / 180.0f));
+    const double sinus = sin(rotation.angle*(3.14159265f / 180.0f));
     result.val[0][0] = cosinus + (rotation.ux)*(rotation.ux)*(1 - cosinus) ;
     result.val[0][1] = (rotation.ux)*(rotation.uy)*(1 - cosinus) - ((rotation.uz)*sinus);
     result.val[0][2] = (rotation.ux)*(rotation.uz)*(1 - cosinus) + (rotation.uy*sinus);
@@ -173,8 +181,89 @@ vector<PerMeshModelling> modellingTransformationsPipeline(){
 }
 
 
+bool is_visible(float d, float num, float& t_e, float& t_l ){
+    float t = 0;
+    if (d > 0){//potentially entering 
+        t = num/d;
+        if(t > t_l){return false;}
+        if(t > t_e){t_e = t;}
+    } else if (d < 0) {//potentially leaving
+        t = num/d;                
+        if(t < t_e){return false;}
+        if(t < t_l){t_l = t;}
+    } else if (num > 0){//line parallel to edge
+        return false;
+    }
+    return true;
+
+}
 
 
+Line liang_barsky(Vec4 vec1, Vec4 vec2, Camera* cam){
+    if(vec2.y < vec1.y){
+        std::swap(vec2, vec1);
+    }
+    float t_e = 0, t_l = 1;
+    float x_min = 0, x_max = cam->horRes - 1, y_min = 0, y_max = cam -> verRes - 1;
+    bool visible = false; 
+    float dx = vec2.x - vec1.x;
+    float dy = vec2.y - vec1.y;
+    if (is_visible(dx, x_min - vec1.x,t_e, t_l)){ // left
+        if (is_visible((-1)*dx, vec1.x - x_max, t_e, t_l)){ // right
+            if(is_visible(dy, y_min - vec1.y, t_e, t_l)){ // bottom
+                if(is_visible((-1)*dy, vec1.y - y_max, t_e, t_l)){ // top
+                    visible = true;
+                    if(t_l < 1){
+                        vec2.x = vec1.x + dx*t_l;
+                        vec2.y = vec1.y + dy*t_l;
+                    }
+                    if(t_e > 0){
+                        vec1.x = vec1.x + dx*t_e;
+                        vec1.y = vec1.y + dy*t_e;
+                    }                    
+                }
+            }
+        }
+    }
+    Line res;
+    res.colorId1 = vec1.colorId, res.colorId2 = vec2.colorId;
+    res.x0 = vec1.x, res.x1 = vec2.x, res.y0 = vec1.y, res.y1 = vec2.y;
+    return res;
+}
+
+
+uint8_t clip(double c){
+    if(c > 255) return 255;
+    if(c < 0) return 0;
+    return c;
+}
+
+void draw_line(Line line){
+    cout<<line.y0<<" "<<line.y1<<endl;
+    double y = line.y0;
+    double d = (y - line.y1) + 0.5*(line.x1 - line.x0);
+    double inv_diff = 1/(line.x1 - line.x0);
+    double cr = scene->colorsOfVertices[line.colorId1 - 1]->r, cg = scene->colorsOfVertices[line.colorId1 - 1]->g, cb = scene->colorsOfVertices[line.colorId1 - 1]->b;
+    double dcr = (scene->colorsOfVertices[line.colorId2 - 1]->r - cr)*inv_diff, dcg = (scene->colorsOfVertices[line.colorId2 - 1]->g - cg)*inv_diff,
+            dcb = (scene->colorsOfVertices[line.colorId2 - 1]->b - cb)*inv_diff;
+    for (int i = line.x0; i <= (int)line.x1 && i < scene->image.size(); i++)
+    {
+        if(y<scene->image[i].size()){
+            scene->image[i][(int)y].r = clip(cr);
+            scene->image[i][(int)y].g = clip(cg);
+            scene->image[i][(int)y].b = clip(cb);
+        }
+        if(d < 0){
+            y = y + 1;
+            d += (line.y0 -line.y1) + (line.x1 -line.x0);
+        } else {
+            d += (line.y0 - line.y1);
+        }
+        cr += dcr;
+        cg += dcg;
+        cb += dcb;
+    }
+}
 
 
 int main(int argc, char *argv[])
@@ -193,6 +282,8 @@ int main(int argc, char *argv[])
 
         for (int i = 0; i < scene->cameras.size(); i++)
         {
+            // initialize image with basic values
+            scene->initializeImage(scene->cameras[i]);
             // cannot determine how to get gaze x up 
             // gaze w
             // up v
@@ -233,33 +324,56 @@ int main(int argc, char *argv[])
                     vec1=multiplyMatrixWithVec4(res1,vec1);
                     vec2=multiplyMatrixWithVec4(res1,vec2);
                     vec3=multiplyMatrixWithVec4(res1,vec3);
+
                     if (scene->cameras[i]->projectionType==1){
                         vec1.x/=vec1.t;
                         vec1.y/=vec1.t;
                         vec1.z/=vec1.t;
+                        vec1.t=1.0f;
 
                         vec2.x/=vec2.t;
                         vec2.y/=vec2.t;
                         vec2.z/=vec2.t;
+                        vec2.t=1.0f;
 
                         vec3.x/=vec3.t;
                         vec3.y/=vec3.t;
                         vec3.z/=vec3.t;
+                        vec3.t=1.0f;
                     }
-                    Vec4 final1=multiplyMatrixWithVec4(viewportMatrix,vec1);
-                    Vec4 final2=multiplyMatrixWithVec4(viewportMatrix,vec2);
-                    Vec4 final3=multiplyMatrixWithVec4(viewportMatrix,vec3);
 
-                    
+
+                    Vec4 final1=multiplyMatrixWithVec4(viewportMatrix,vec1);
+                    final1.x = int(final1.x) + 0.5;
+                    final1.y = int(final1.y) + 0.5;
+                    Vec4 final2=multiplyMatrixWithVec4(viewportMatrix,vec2);
+                    final2.x = int(final2.x) + 0.5;
+                    final2.y = int(final2.y) + 0.5;
+                    Vec4 final3=multiplyMatrixWithVec4(viewportMatrix,vec3);
+                    final3.x = int(final3.x) + 0.5;
+                    final3.y = int(final3.y) + 0.5;
+                    Line line1, line2, line3;
+                    if (msh->type == 0){
+                            line1 = liang_barsky(final1, final2, scene->cameras[i]);
+                            line2 = liang_barsky(final1, final3, scene->cameras[i]);
+                            line3 = liang_barsky(final2, final3, scene->cameras[i]); 
+                            draw_line(line1);
+                            draw_line(line2);
+                            draw_line(line3);  
+                    } else{
+                        
+                    }
+                    // cout<<final1.x<<" "<<final1.y<<" "<<final1.z<<endl;
+                    // cout<<final2.x<<" "<<final2.y<<" "<<final2.z<<endl;
+                    // cout<<final3.x<<" "<<final3.y<<" "<<final3.z<<endl;    
+                
                 }
             }
-
-
-            // initialize image with basic values
-            scene->initializeImage(scene->cameras[i]);
+            
+            
 
             // do forward rendering pipeline operations
-            scene->forwardRenderingPipeline(scene->cameras[i]);
+           // scene->forwardRenderingPipeline(scene->cameras[i]);
 
             // generate PPM file
             scene->writeImageToPPMFile(scene->cameras[i]);
