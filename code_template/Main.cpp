@@ -174,12 +174,99 @@ vector<PerMeshModelling> modellingTransformationsPipeline(){
         tP.compositeModelling=tComposite;
         tP.mesh_id=i+1;
         perMeshModellings.push_back(tP);
-
-
     }
     return perMeshModellings;
 }
+uint8_t clip(double c){
+    if(c > 255) return 255;
+    if(c < 0) return 0;
+    return c;
+}
 
+
+void drawTriangle(Vec4 vertex0, Vec4 vertex1, Vec4 vertex2){
+    double xMin=min(vertex0.x,min(vertex1.x,vertex2.x));
+    double yMin=min(vertex0.y,min(vertex1.y,vertex2.y));
+    double zMin=min(vertex0.z,min(vertex1.z,vertex2.z));
+    double xMax=max(vertex0.x,max(vertex1.x,vertex2.x));
+    double yMax=max(vertex0.y,max(vertex1.y,vertex2.y));
+    double zMax=max(vertex0.z,max(vertex1.z,vertex2.z));
+    Color c0=*(scene->colorsOfVertices[vertex0.colorId-1]);
+    Color c1=*(scene->colorsOfVertices[vertex1.colorId-1]);
+    Color c2=*(scene->colorsOfVertices[vertex2.colorId-1]);
+    for (int y=yMin; y<yMax+1; y++){
+        for (int x=xMin; x<xMax+1; x++){
+            double alfa=(x*(vertex1.y-vertex2.y)+ y*(vertex2.x-vertex1.x)+vertex1.x*vertex2.y-vertex1.y*vertex2.x)/
+                        (vertex0.x*(vertex1.y-vertex2.y)+ vertex0.y*(vertex2.x-vertex1.x)+vertex1.x*vertex2.y-vertex1.y*vertex2.x);
+            double beta=(x*(vertex2.y-vertex0.y)+ y*(vertex0.x-vertex2.x)+vertex2.x*vertex0.y-vertex2.y*vertex0.x)/
+                        (vertex1.x*(vertex2.y-vertex0.y)+ vertex1.y*(vertex0.x-vertex2.x)+vertex2.x*vertex0.y-vertex2.y*vertex0.x);
+            double gamma=(x*(vertex0.y-vertex1.y)+ y*(vertex1.x-vertex0.x)+vertex0.x*vertex1.y-vertex0.y*vertex1.x)/
+                        (vertex2.x*(vertex0.y-vertex1.y)+ vertex2.y*(vertex1.x-vertex0.x)+vertex0.x*vertex1.y-vertex0.y*vertex1.x);
+            if (alfa>=0 && beta>=0 && gamma>=0){
+                int cr=alfa*c0.r+beta*c1.r+gamma*c2.r;
+                int cg=alfa*c0.g+beta*c1.g+gamma*c2.g;
+                int cb=alfa*c0.b+beta*c1.b+gamma*c2.b;
+                scene->image[x][y].r=clip(cr);
+                scene->image[x][y].g=clip(cg);
+                scene->image[x][y].b=clip(cb);
+            }
+        }
+
+    }
+
+}
+
+
+void draw_line(Line line){
+    bool flag=abs(line.y1 - line.y0) > abs(line.x1- line.x0);
+    if (flag){
+        std::swap(line.x0,line.y0);
+        std::swap(line.x1,line.y1);
+
+    }
+    if (line.x0>line.x1){
+        std::swap(line.x0,line.x1);
+        std::swap(line.y0,line.y1);
+    }
+    int delta=1;
+    if (line.y0>line.y1){
+        delta=-1;
+    }
+    double y = line.y0;
+    double d = (-1)*abs(line.y0 - line.y1) + 0.5*(line.x1 - line.x0);
+    double inv_diff = 1/(line.x1 - line.x0);
+    double  cr = scene->colorsOfVertices[line.colorId1 - 1]->r, 
+            cg = scene->colorsOfVertices[line.colorId1 - 1]->g, 
+            cb = scene->colorsOfVertices[line.colorId1 - 1]->b;
+    double  dcr = (scene->colorsOfVertices[line.colorId2 - 1]->r - cr)*inv_diff, 
+            dcg = (scene->colorsOfVertices[line.colorId2 - 1]->g - cg)*inv_diff,
+            dcb = (scene->colorsOfVertices[line.colorId2 - 1]->b - cb)*inv_diff;
+    for (int i = line.x0; i <= (int)line.x1 && i < scene->image.size(); i++)
+    {
+        if(y<scene->image[i].size()){
+            if (!flag){
+                scene->image[i][(int)y].r = clip(cr);
+                scene->image[i][(int)y].g = clip(cg);
+                scene->image[i][(int)y].b = clip(cb);
+            }
+            else{
+                scene->image[(int)y][i].r = clip(cr);
+                scene->image[(int)y][i].g = clip(cg);
+                scene->image[(int)y][i].b = clip(cb);
+            }
+            
+        }
+        if(d < 0){
+            y = y + delta;
+            d += (-1)*abs(line.y0 -line.y1) + (line.x1 -line.x0);
+        } else {
+            d += (-1)*abs(line.y0 - line.y1);
+        }
+        cr += dcr;
+        cg += dcg;
+        cb += dcb;
+    }
+}
 
 bool is_visible(float d, float num, float& t_e, float& t_l ){
     float t = 0;
@@ -199,12 +286,15 @@ bool is_visible(float d, float num, float& t_e, float& t_l ){
 }
 
 
-Line liang_barsky(Vec4 vec1, Vec4 vec2, Camera* cam){
-    if(vec2.y < vec1.y){
-        std::swap(vec2, vec1);
-    }
+void liang_barsky(Vec4 vec1, Vec4 vec2, Camera* cam){
+    // if(vec2.y < vec1.y){
+    //     std::swap(vec2, vec1);
+    // }
     float t_e = 0, t_l = 1;
-    float x_min = 0, x_max = cam->horRes - 1, y_min = 0, y_max = cam -> verRes - 1;
+    int   x_min = 0, 
+            x_max = cam->horRes - 1, 
+            y_min = 0, 
+            y_max = cam -> verRes - 1;
     bool visible = false; 
     float dx = vec2.x - vec1.x;
     float dy = vec2.y - vec1.y;
@@ -220,50 +310,19 @@ Line liang_barsky(Vec4 vec1, Vec4 vec2, Camera* cam){
                     if(t_e > 0){
                         vec1.x = vec1.x + dx*t_e;
                         vec1.y = vec1.y + dy*t_e;
-                    }                    
+                    }        
+                    Line res;       
+                    res.colorId1 = vec1.colorId, res.colorId2 = vec2.colorId;
+                    res.x0 = vec1.x, res.x1 = vec2.x, res.y0 = vec1.y, res.y1 = vec2.y;
+                    draw_line(res);
                 }
             }
         }
     }
-    Line res;
-    res.colorId1 = vec1.colorId, res.colorId2 = vec2.colorId;
-    res.x0 = vec1.x, res.x1 = vec2.x, res.y0 = vec1.y, res.y1 = vec2.y;
-    return res;
 }
 
 
-uint8_t clip(double c){
-    if(c > 255) return 255;
-    if(c < 0) return 0;
-    return c;
-}
 
-void draw_line(Line line){
-    cout<<line.y0<<" "<<line.y1<<endl;
-    double y = line.y0;
-    double d = (y - line.y1) + 0.5*(line.x1 - line.x0);
-    double inv_diff = 1/(line.x1 - line.x0);
-    double cr = scene->colorsOfVertices[line.colorId1 - 1]->r, cg = scene->colorsOfVertices[line.colorId1 - 1]->g, cb = scene->colorsOfVertices[line.colorId1 - 1]->b;
-    double dcr = (scene->colorsOfVertices[line.colorId2 - 1]->r - cr)*inv_diff, dcg = (scene->colorsOfVertices[line.colorId2 - 1]->g - cg)*inv_diff,
-            dcb = (scene->colorsOfVertices[line.colorId2 - 1]->b - cb)*inv_diff;
-    for (int i = line.x0; i <= (int)line.x1 && i < scene->image.size(); i++)
-    {
-        if(y<scene->image[i].size()){
-            scene->image[i][(int)y].r = clip(cr);
-            scene->image[i][(int)y].g = clip(cg);
-            scene->image[i][(int)y].b = clip(cb);
-        }
-        if(d < 0){
-            y = y + 1;
-            d += (line.y0 -line.y1) + (line.x1 -line.x0);
-        } else {
-            d += (line.y0 - line.y1);
-        }
-        cr += dcr;
-        cg += dcg;
-        cb += dcb;
-    }
-}
 
 
 int main(int argc, char *argv[])
@@ -352,20 +411,18 @@ int main(int argc, char *argv[])
                     Vec4 final3=multiplyMatrixWithVec4(viewportMatrix,vec3);
                     final3.x = int(final3.x) + 0.5;
                     final3.y = int(final3.y) + 0.5;
+                    cout<<final1.x<<" "<<final1.y<<" "<<final1.z<<endl;
+                    cout<<final2.x<<" "<<final2.y<<" "<<final2.z<<endl;
+                    cout<<final3.x<<" "<<final3.y<<" "<<final3.z<<endl;    
                     Line line1, line2, line3;
                     if (msh->type == 0){
-                            line1 = liang_barsky(final1, final2, scene->cameras[i]);
-                            line2 = liang_barsky(final1, final3, scene->cameras[i]);
-                            line3 = liang_barsky(final2, final3, scene->cameras[i]); 
-                            draw_line(line1);
-                            draw_line(line2);
-                            draw_line(line3);  
+                            liang_barsky(final1, final2, scene->cameras[i]);
+                            liang_barsky(final2, final3, scene->cameras[i]);
+                            liang_barsky(final3, final1, scene->cameras[i]); 
                     } else{
-                        
+                        drawTriangle(final1,final2,final3);
                     }
-                    // cout<<final1.x<<" "<<final1.y<<" "<<final1.z<<endl;
-                    // cout<<final2.x<<" "<<final2.y<<" "<<final2.z<<endl;
-                    // cout<<final3.x<<" "<<final3.y<<" "<<final3.z<<endl;    
+                    
                 
                 }
             }
