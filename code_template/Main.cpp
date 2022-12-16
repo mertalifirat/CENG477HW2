@@ -184,7 +184,7 @@ uint8_t clip(double c){
 }
 
 
-void drawTriangle(Vec4 vertex0, Vec4 vertex1, Vec4 vertex2){
+void drawTriangle(Vec4 vertex0, Vec4 vertex1, Vec4 vertex2,Camera cam){
     double xMin=min(vertex0.x,min(vertex1.x,vertex2.x));
     double yMin=min(vertex0.y,min(vertex1.y,vertex2.y));
     double zMin=min(vertex0.z,min(vertex1.z,vertex2.z));
@@ -206,9 +206,12 @@ void drawTriangle(Vec4 vertex0, Vec4 vertex1, Vec4 vertex2){
                 int cr=alfa*c0.r+beta*c1.r+gamma*c2.r;
                 int cg=alfa*c0.g+beta*c1.g+gamma*c2.g;
                 int cb=alfa*c0.b+beta*c1.b+gamma*c2.b;
-                scene->image[x][y].r=clip(cr);
-                scene->image[x][y].g=clip(cg);
-                scene->image[x][y].b=clip(cb);
+                if (x>=0 && y>=0 && x<=cam.horRes-1 && y<=cam.verRes-1){
+                    scene->image[x][y].r=clip(cr);
+                    scene->image[x][y].g=clip(cg);
+                    scene->image[x][y].b=clip(cb);
+                }
+                    
             }
         }
 
@@ -227,6 +230,7 @@ void draw_line(Line line){
     if (line.x0>line.x1){
         std::swap(line.x0,line.x1);
         std::swap(line.y0,line.y1);
+        std::swap(line.colorId1, line.colorId2);
     }
     int delta=1;
     if (line.y0>line.y1){
@@ -268,6 +272,8 @@ void draw_line(Line line){
     }
 }
 
+
+
 bool is_visible(float d, float num, float& t_e, float& t_l ){
     float t = 0;
     if (d > 0){//potentially entering 
@@ -283,6 +289,61 @@ bool is_visible(float d, float num, float& t_e, float& t_l ){
     }
     return true;
 
+}
+
+Vec4 subtractVec4(Vec4 a, Vec4 b)
+{
+    Vec4 result;
+    result.x = a.x - b.x;
+    result.y = a.y - b.y;
+    result.z = a.z - b.z;
+
+    return result;
+}
+
+
+Vec4 crossProductVec4(Vec4 a, Vec4 b)
+{
+    Vec4 result;
+
+    result.x = a.y * b.z - b.y * a.z;
+    result.y = b.x * a.z - a.x * b.z;
+    result.z = a.x * b.y - b.x * a.y;
+
+    return result;
+}
+
+double magnitudeOfVec4(Vec4 v)
+{
+    return sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+}
+
+Vec4 normalizeVec4(Vec4 v)
+{
+    Vec4 result;
+    double d;
+
+    d = magnitudeOfVec4(v);
+    result.x = v.x / d;
+    result.y = v.y / d;
+    result.z = v.z / d;
+
+    return result;
+}
+
+double dotProductVec4(Vec4 a, Vec4 b)
+{
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+bool culling(Vec4 vec1, Vec4 vec2, Vec4 vec3){
+	Vec4 edge1 = subtractVec4(vec2, vec1);
+	Vec4 edge2 = subtractVec4(vec3, vec1);
+	Vec4 normal = crossProductVec4(edge2, edge1);
+	normal = normalizeVec4(normal);
+	Vec4 viewing_vector = vec1;
+	viewing_vector = normalizeVec4(viewing_vector);
+	return dotProductVec4(viewing_vector, normal) > 0;
 }
 
 
@@ -413,16 +474,18 @@ int main(int argc, char *argv[])
                     final3.y = int(final3.y) + 0.5;
                     cout<<final1.x<<" "<<final1.y<<" "<<final1.z<<endl;
                     cout<<final2.x<<" "<<final2.y<<" "<<final2.z<<endl;
-                    cout<<final3.x<<" "<<final3.y<<" "<<final3.z<<endl;    
+                    cout<<final3.x<<" "<<final3.y<<" "<<final3.z<<endl;  
+                    if (scene->cullingEnabled && culling(final1, final2,final3)){
+                        continue;
+                    }  
                     Line line1, line2, line3;
                     if (msh->type == 0){
                             liang_barsky(final1, final2, scene->cameras[i]);
                             liang_barsky(final2, final3, scene->cameras[i]);
                             liang_barsky(final3, final1, scene->cameras[i]); 
                     } else{
-                        drawTriangle(final1,final2,final3);
+                        drawTriangle(final1,final2,final3,*scene->cameras[i]);
                     }
-                    
                 
                 }
             }
