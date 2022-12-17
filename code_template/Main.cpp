@@ -219,19 +219,29 @@ void drawTriangle(Vec4 vertex0, Vec4 vertex1, Vec4 vertex2,Camera cam){
 
 }
 
+bool change_dimension(double& x0, double& y0, double& x1, double& y1, int flag){
+    cout <<flag<< " in change dimension" << endl;
+    double temp = x0;
+    x0 = y0;
+    y0 = temp;
+    temp = x1;
+    x1 = y1;
+    y1 = temp;
+    return true;
+}
+
+bool change_color_id(int& id1, int& id2){
+    int temp = id1;
+    id1 = id2;
+    id2 = temp;
+    return true;
+}
+
 
 void draw_line(Line line){
     bool flag=abs(line.y1 - line.y0) > abs(line.x1- line.x0);
-    if (flag){
-        std::swap(line.x0,line.y0);
-        std::swap(line.x1,line.y1);
-
-    }
-    if (line.x0>line.x1){
-        std::swap(line.x0,line.x1);
-        std::swap(line.y0,line.y1);
-        std::swap(line.colorId1, line.colorId2);
-    }
+    flag && change_dimension(line.x0, line.y0, line.x1, line.y1, flag);
+    (line.x0>line.x1) && change_dimension(line.x0, line.x1, line.y0, line.y1, (line.x0>line.x1)) && change_color_id(line.colorId1, line.colorId2); 
     int delta=1;
     if (line.y0>line.y1){
         delta=-1;
@@ -337,13 +347,10 @@ double dotProductVec4(Vec4 a, Vec4 b)
 }
 
 bool culling(Vec4 vec1, Vec4 vec2, Vec4 vec3){
-	Vec4 edge1 = subtractVec4(vec2, vec1);
-	Vec4 edge2 = subtractVec4(vec3, vec1);
-	Vec4 normal = crossProductVec4(edge2, edge1);
-	normal = normalizeVec4(normal);
-	Vec4 viewing_vector = vec1;
-	viewing_vector = normalizeVec4(viewing_vector);
-	return dotProductVec4(viewing_vector, normal) > 0;
+	Vec4 n = crossProductVec4(subtractVec4(vec3, vec1), subtractVec4(vec2, vec1));
+	Vec4 normalized_n = normalizeVec4(n);
+	Vec4 v_viewing = normalizeVec4(vec1);
+	return dotProductVec4(v_viewing, normalized_n) > 0;
 }
 
 
