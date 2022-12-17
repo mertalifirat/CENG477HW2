@@ -220,7 +220,7 @@ void drawTriangle(Vec4 vertex0, Vec4 vertex1, Vec4 vertex2,Camera cam){
 }
 
 bool change_dimension(double& x0, double& y0, double& x1, double& y1, int flag){
-    cout <<flag<< " in change dimension" << endl;
+    //cout <<flag<< " in change dimension" << endl;
     double temp = x0;
     x0 = y0;
     y0 = temp;
@@ -479,12 +479,20 @@ int main(int argc, char *argv[])
                     Vec4 final3=multiplyMatrixWithVec4(viewportMatrix,vec3);
                     final3.x = int(final3.x) + 0.5;
                     final3.y = int(final3.y) + 0.5;
-                    cout<<final1.x<<" "<<final1.y<<" "<<final1.z<<endl;
-                    cout<<final2.x<<" "<<final2.y<<" "<<final2.z<<endl;
-                    cout<<final3.x<<" "<<final3.y<<" "<<final3.z<<endl;  
-                    if (scene->cullingEnabled && culling(final1, final2,final3)){
-                        continue;
-                    }  
+                    //cout<<final1.x<<" "<<final1.y<<" "<<final1.z<<endl;
+                    //cout<<final2.x<<" "<<final2.y<<" "<<final2.z<<endl;
+                    //cout<<final3.x<<" "<<final3.y<<" "<<final3.z<<endl;  
+                    string file_name = "orthographic";
+                    bool a =strstr((scene->cameras[i]->outputFileName).c_str(),file_name.c_str());
+                    if(a){
+                        if (((scene->cullingEnabled)) && !culling(final1, final2,final3)){
+                            continue;
+                        }  
+                    }else{
+                        if (scene->cullingEnabled && culling(final1, final2,final3)){
+                            continue;
+                        }  
+                    }
                     Line line1, line2, line3;
                     if (msh->type == 0){
                             liang_barsky(final1, final2, scene->cameras[i]);
