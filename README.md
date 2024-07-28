@@ -1,2 +1,2 @@
 # CENG477HW2
-rasterizer
+Introduction to Computer Graphics Rasterizer
